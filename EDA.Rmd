@@ -1,0 +1,57 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+
+```{r}
+library(tidyverse)
+data <- read.csv("http://www.stat.cmu.edu/cmsac/sure/materials/data/regression_projects/nba_team_season_summary.csv")
+head(data)
+data <- data %>% mutate(games = wins + losses, appg = total_points/games, asd = score_differential/games) %>% arrange(appg)
+data %>% ggplot(aes(x = appg)) + geom_histogram(bins = 24) + geom_freqpoly(color = "pink")
+unique(data$season)
+```
+Comments:
+  * most seasons have 82 games, 30 have 66, 2 have 81. why?
+  *appg appears almost normal but with a bit of a right tail, we checked outliers via intro to stat method,     115 ish was the cutoff, it's higher than where we start to see problems
+
+
+```{r}
+#assumption check  (to see if we're looking normal)
+assumptionChecker <- function(info, var) {
+  info %>% ggplot(aes(x = var)) + geom_histogram()
+}
+
+assumptionChecker(data, data$field_goal_perc)
+assumptionChecker(data, data$three_point_perc)
+assumptionChecker(data, data$free_throw_perc)
+assumptionChecker(data, data$two_point_perc)
+assumptionChecker(data, data$win_perc)
+assumptionChecker(data, data$asd)
+
+#outlier check
+outlierChecker <- function(df,var) {
+fiveNum <- summary(df$var)
+#index 5 is third quartile, index 2 is first quartile
+IQR <- fiveNum[[5]] - fiveNum[[2]]
+df %>% filter((var > fiveNum[[5]] + (1.5 * IQR)) || (var < fiveNum[[1]] - (1.5 * IQR))) 
+}
+
+temp <- outlierChecker(data, field_goal_perc)
+temp
+outlierChecker(data, three_point_perc)
+outlierChecker(data, free_throw_perc)
+outlierChecker(data, two_point_perc)
+outlierChecker(data, win_perc)
+outlierChecker(data, asd)
+
+fiveNum <- summary(data$asd)
+fiveNum
+
+#index 5 is third quartile, index 2 is first quartile
+IQR <- fiveNum[[5]] - fiveNum[[2]]
+IQR
+data %>% filter((asd > fiveNum[5] + (1.5 * IQR)) || (asd < fiveNum[1] - (1.5 * IQR))) 
+
+```
