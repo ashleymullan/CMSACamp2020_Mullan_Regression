@@ -1,24 +1,47 @@
 ---
-title: "R Notebook"
+title: "R Notebook with EDA and Beginnings of Model"
 output: html_notebook
 ---
 
 
+general comments:
+1. Ashley needs to master GitHub
+2. our EDA led us to make a bunch of new variables averaging the season counts per game to somewhat standardize them
+3. we are considering these averaged variables and the percentage variables
+4. our two designated candidate response variables are average points per game and average score differential
+5. we wanted to use lasso regression as a kind of confidence booster with our variable selection, we need a little help interpreting them and would also like to make the graphs with the coefficients as a function of lambda but were a little stuck since they were loaded into the lecture slides as images
+6. each variable I looked at appeared roughly unimodal but we had some tail concerns, which motivated us to look at outliers (there were none)
+7. context question: why do we have 36 teams coded in but only 30 observations in each season?
+8. we plan to cross validate by season. we dedicated 3 code blocks to setting this up.
+
 ```{r}
+library(GGally)
+library(ggcorrplot)
 library(tidyverse)
+library(glmnet)
+```
+
+```{r}
 data <- read.csv("http://www.stat.cmu.edu/cmsac/sure/materials/data/regression_projects/nba_team_season_summary.csv")
 head(data)
 data <- data %>% mutate(games = wins + losses, appg = total_points/games, asd = score_differential/games) %>% arrange(appg)
 data %>% ggplot(aes(x = appg)) + geom_histogram(bins = 24) + geom_freqpoly(color = "pink")
-unique(data$season)
+
+#checking for unique observations
+unique(data$season)  #we have every season from 2003-04 to 2018-19
+unique(data$team) #we have 36 teams
 ```
 Comments:
   * most seasons have 82 games, 30 have 66, 2 have 81. why?
-  *appg appears almost normal but with a bit of a right tail, we checked outliers via intro to stat method,     115 ish was the cutoff, it's higher than where we start to see problems
+  * appg is average points per game
+  * appg appears almost normal but with a bit of a right tail, we checked outliers via intro to stat method,     115 ish was the cutoff, it's higher than where we start to see problems
+  * we later split our data by season, which gave us datasets of size 29-30. but we have 36 unique teams. interesting.
+  * each observation is the stats for a team for an individual season
+  * we originally had 479 observations of 28 variables, mutated up to 30
 
 
 ```{r}
-#assumption check  (to see if we're looking normal)
+#assumption check  (to see if distributions look close to normal)
 assumptionChecker <- function(info, var) {
   info %>% ggplot(aes(x = var)) + geom_histogram()
 }
@@ -30,28 +53,142 @@ assumptionChecker(data, data$two_point_perc)
 assumptionChecker(data, data$win_perc)
 assumptionChecker(data, data$asd)
 
-#outlier check
-outlierChecker <- function(df,var) {
-fiveNum <- summary(df$var)
-#index 5 is third quartile, index 2 is first quartile
-IQR <- fiveNum[[5]] - fiveNum[[2]]
-df %>% filter((var > fiveNum[[5]] + (1.5 * IQR)) || (var < fiveNum[[1]] - (1.5 * IQR))) 
-}
+```
 
-temp <- outlierChecker(data, field_goal_perc)
-temp
-outlierChecker(data, three_point_perc)
-outlierChecker(data, free_throw_perc)
-outlierChecker(data, two_point_perc)
-outlierChecker(data, win_perc)
-outlierChecker(data, asd)
+```{r}
+#moral of the story: we have no outliers by definition of outside plus/minus 1.5 * IQR
+summary(data$field_goal_perc)
+iqrScaledFGP <- 1.5 * (.4640-.4440)
+removedOutliersFGP <- data %>% filter((field_goal_perc >= .4440 - iqrScaledFGP) && (field_goal_perc <= .4640 + iqrScaledFGP))
 
-fiveNum <- summary(data$asd)
-fiveNum
+summary(data$three_point_perc)
+iqrScaled3PP <- 1.5 * (.3674-.3440)
+removedOutliers3PP <- data %>% filter((three_point_perc >= .3440 - iqrScaled3PP) && (three_point_perc <= .3674 + iqrScaled3PP))
 
-#index 5 is third quartile, index 2 is first quartile
-IQR <- fiveNum[[5]] - fiveNum[[2]]
-IQR
-data %>% filter((asd > fiveNum[5] + (1.5 * IQR)) || (asd < fiveNum[1] - (1.5 * IQR))) 
+summary(data$free_throw_perc)
+iqrScaledFTP <- 1.5 * (.7790-.7415)
+removedOutliersFTP <- data %>% filter((free_throw_perc >= .7415 - iqrScaledFTP) && (free_throw_perc <= .7790 + iqrScaledFTP))
 
+summary(data$two_point_perc)
+iqrScaled2PP <- 1.5 * (.5032-.4723)
+removedOutliers2PP <- data %>% filter((two_point_perc >= .4723 - iqrScaled2PP) && (two_point_perc <= .5032 + iqrScaled2PP))
+
+summary(data$win_perc)
+iqrScaledWP <- 1.5 * (.610-.390)
+removedOutliersWP <- data %>% filter((win_perc >= .4440 - iqrScaledWP) && (win_perc <= .4640 + iqrScaledWP))
+
+summary(data$asd)
+iqrScaledASD <- 1.5 * (3.426829 + 3.030488)
+removedOutliersASD <- data %>% filter((asd >= -3.030488 - iqrScaledASD) && (asd <= 3.426829 + iqrScaledASD))
+
+```
+
+```{r}
+#selects the variables I was looking at, all of the percentages and the avg score differential
+dataForGGPairs <- data %>% select(field_goal_perc, three_point_perc, free_throw_perc, two_point_perc, win_perc, asd)
+ggpairs(data = dataForGGPairs)
+```
+
+```{r}
+#This block initializes training sets that each leave out one season.
+#each df includes all of the data except the one listed in the name
+trainWO_2003_2004 <- data %>% filter(season != "2003-04")
+trainWO_2004_2005 <- data %>% filter(season != "2004-05")
+trainWO_2005_2006 <- data %>% filter(season != "2005-06")
+trainWO_2006_2007 <- data %>% filter(season != "2006-07")
+trainWO_2007_2008 <- data %>% filter(season != "2007-08")
+trainWO_2008_2009 <- data %>% filter(season != "2008-09")
+trainWO_2009_2010 <- data %>% filter(season != "2009-10")
+trainWO_2010_2011 <- data %>% filter(season != "2010-11")
+trainWO_2011_2012 <- data %>% filter(season != "2011-12")
+trainWO_2012_2013 <- data %>% filter(season != "2012-13")
+trainWO_2013_2014 <- data %>% filter(season != "2013-14")
+trainWO_2014_2015 <- data %>% filter(season != "2014-15")
+trainWO_2015_2016 <- data %>% filter(season != "2015-16")
+trainWO_2016_2017 <- data %>% filter(season != "2016-17")
+trainWO_2017_2018 <- data %>% filter(season != "2017-18")
+trainWO_2018_2019 <- data %>% filter(season != "2018-19")
+```
+
+```{r}
+#This block initializes test sets that each have one season.
+#each df includes only the listed season
+test_2003_2004 <- data %>% filter(season == "2003-04")
+test_2004_2005 <- data %>% filter(season == "2004-05")
+test_2005_2006 <- data %>% filter(season == "2005-06")
+test_2006_2007 <- data %>% filter(season == "2006-07")
+test_2007_2008 <- data %>% filter(season == "2007-08")
+test_2008_2009 <- data %>% filter(season == "2008-09")
+test_2009_2010 <- data %>% filter(season == "2009-10")
+test_2010_2011 <- data %>% filter(season == "2010-11")
+test_2011_2012 <- data %>% filter(season == "2011-12")
+test_2012_2013 <- data %>% filter(season == "2012-13")
+test_2013_2014 <- data %>% filter(season == "2013-14")
+test_2014_2015 <- data %>% filter(season == "2014-15")
+test_2015_2016 <- data %>% filter(season == "2015-16")
+test_2016_2017 <- data %>% filter(season == "2016-17")
+test_2017_2018 <- data %>% filter(season == "2017-18")
+test_2018_2019 <- data %>% filter(season == "2018-19")
+```
+
+```{r}
+#adds fold id
+data_copy_for_adding_fold_id <- data_avg_only
+data_copy_for_adding_fold_id %>%
+  mutate(
+    season = as.character(season),
+    fold = case_when(
+      season == '2003-04' ~ '1',
+      season == '2004-05' ~ '2',
+      season == '2005-06' ~ '3',
+      season == '2006-07' ~ '4',
+      season == '2007-08' ~ '5',
+      season == '2008-09' ~ '6',
+      season == '2009-10' ~ '7',
+      season == '2010-11' ~ '8',
+      season == '2011-12' ~ '9',
+      season == '2012-13' ~ '10',
+      season == '2013-14' ~ '11',
+      season == '2014-15' ~ '12',
+      season == '2015-16' ~ '13',
+      season == '2016-17' ~ '14',
+      season == '2017-18' ~ '15',
+      season == '2018-19' ~ '16',
+      TRUE ~ season
+    )
+  )
+```
+
+```{r}
+with_averages_data <- data %>%
+  mutate(games = wins + losses, 
+         avg_points = total_points/games, 
+         avg_turnovers= turnovers/games, 
+         avg_fouls= personal_fouls/games, 
+         avg_assists = assists/games, 
+         avg_rebounds = total_rebounds/games, 
+         avg_score_differential = score_differential/games, 
+         avg_steals = steals/games, 
+         avg_blocks = blocks/games,
+         avg_blocks_against = blocks_against/games)
+  
+#has only averages and percents for doing our regression
+data_avg_only <- with_averages_data %>%
+  select(avg_points, team, season, avg_turnovers, avg_fouls, avg_assists, avg_rebounds, avg_score_differential, avg_steals, avg_blocks, avg_blocks_against, win_perc, field_goal_perc, three_point_perc, free_throw_perc, two_point_perc)
+head(data_avg_only)
+
+#lasso regression with points
+points_model_x <- model.matrix(avg_points ~ ., data_avg_only)[, -1]
+points_model_y <- data_avg_only$avg_points
+fit_lasso_points_cv <- cv.glmnet(points_model_x, points_model_y, foldid = data_copy_for_adding_fold_id$fold, alpha = 1)
+fit_lasso_points_cv$lambda.min
+plot(fit_lasso_points_cv)
+#why is this exponential with so little error, does this mean something?
+
+#lasso regression with score differential
+differential_model_x <- model.matrix(avg_score_differential ~ ., data_avg_only)[, -8]
+differential_model_y <- data_avg_only$avg_score_differential
+fit_lasso_differential_cv <- cv.glmnet(differential_model_x, differential_model_y, foldid = data_copy_for_adding_fold_id$fold, alpha = 1)
+fit_lasso_differential_cv$lambda.min
+plot(fit_lasso_differential_cv)
 ```
