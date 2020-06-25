@@ -134,7 +134,7 @@ test_2018_2019 <- data %>% filter(season == "2018-19")
 ```{r}
 #adds fold id
 data_copy_for_adding_fold_id <- data_avg_only
-data_copy_for_adding_fold_id %>%
+data_copy_for_adding_fold_id <- data_copy_for_adding_fold_id %>%
   mutate(
     season = as.character(season),
     fold = case_when(
@@ -180,7 +180,7 @@ head(data_avg_only)
 #lasso regression with points
 points_model_x <- model.matrix(avg_points ~ ., data_avg_only)[, -1]
 points_model_y <- data_avg_only$avg_points
-fit_lasso_points_cv <- cv.glmnet(points_model_x, points_model_y, foldid = data_copy_for_adding_fold_id$fold, alpha = 1)
+fit_lasso_points_cv <- cv.glmnet(points_model_x, points_model_y, foldid = as.double(data_copy_for_adding_fold_id$fold), alpha = 1)
 fit_lasso_points_cv$lambda.min
 plot(fit_lasso_points_cv)
 #why is this exponential with so little error, does this mean something?
@@ -188,7 +188,114 @@ plot(fit_lasso_points_cv)
 #lasso regression with score differential
 differential_model_x <- model.matrix(avg_score_differential ~ ., data_avg_only)[, -8]
 differential_model_y <- data_avg_only$avg_score_differential
-fit_lasso_differential_cv <- cv.glmnet(differential_model_x, differential_model_y, foldid = data_copy_for_adding_fold_id$fold, alpha = 1)
+fit_lasso_differential_cv <- cv.glmnet(differential_model_x, differential_model_y, foldid = as.double(data_copy_for_adding_fold_id$fold), alpha = 1)
 fit_lasso_differential_cv$lambda.min
 plot(fit_lasso_differential_cv)
+plot(fit_lasso_differential_cv$glmnet.fit, "lambda", label = TRUE)
 ```
+
+```{r}
+#cross validation function that returns LM object
+crossValidatorInator <- function(df, recipe, foldID) {
+  df <- df %>% filter(fold != foldID)
+  lm_object <- lm(data = df, formula = as.formula(recipe))
+  return(lm_object)
+}
+
+#cross validation of null models for points
+null_model_linear_fit_points <- rep(NULL, 16)
+for (i in 1:16){
+  null_model_linear_fit_points[[i]] <- crossValidatorInator(data_copy_for_adding_fold_id, avg_points ~ 1, i)
+}
+
+#cross validation of all var models for points and plots
+all_vars_model_linear_fit_points <- rep(NULL, 16)
+for (i in 1:16) {
+  all_vars_model_linear_fit_points[[i]] <- crossValidatorInator(data_copy_for_adding_fold_id, avg_points ~ . - fold, i)
+}
+
+#cross validation of null models for asd
+null_model_linear_fit_asd <- rep(NULL, 16)
+for (i in 1:16){
+  null_model_linear_fit_asd[[i]] <- crossValidatorInator(data_copy_for_adding_fold_id, avg_score_differential ~ 1, i)
+}
+
+#cross validation of all var models for asd
+all_vars_model_linear_fit_asd <- rep(NULL, 16)
+for (i in 1:16){
+  all_vars_model_linear_fit_asd[[i]] <- crossValidatorInator(data_copy_for_adding_fold_id, avg_score_differential ~ . - fold, i)
+}
+
+#cross val of lesser known avg frequencies for points (modelA)  we liked it
+lesser_known_model_linear_fit_points <- rep(NULL, 16)
+for (i in 1:16){
+  lesser_known_model_linear_fit_points[[i]] <- crossValidatorInator(data_copy_for_adding_fold_id, avg_points ~ avg_turnovers + avg_fouls + avg_assists + avg_rebounds + avg_steals + avg_blocks + avg_blocks_against, i)
+}
+#for(i in 1:16) {plot(lesser_known_model_linear_fit_points[[i]])}
+coefficient_frame_lesser_known_points <- data.frame(lesser_known_model_linear_fit_points[[1]]$coefficients, lesser_known_model_linear_fit_points[[2]]$coefficients, lesser_known_model_linear_fit_points[[3]]$coefficients, lesser_known_model_linear_fit_points[[4]]$coefficients, lesser_known_model_linear_fit_points[[5]]$coefficients, lesser_known_model_linear_fit_points[[6]]$coefficients, lesser_known_model_linear_fit_points[[7]]$coefficients, lesser_known_model_linear_fit_points[[8]]$coefficients, lesser_known_model_linear_fit_points[[9]]$coefficients, lesser_known_model_linear_fit_points[[10]]$coefficients, lesser_known_model_linear_fit_points[[11]]$coefficients, lesser_known_model_linear_fit_points[[12]]$coefficients, lesser_known_model_linear_fit_points[[13]]$coefficients, lesser_known_model_linear_fit_points[[14]]$coefficients, lesser_known_model_linear_fit_points[[15]]$coefficients, lesser_known_model_linear_fit_points[[16]]$coefficients)
+transposeA <- as.data.frame(t(coefficient_frame_lesser_known_points))
+interceptMeanA <- mean(transposeA$`(Intercept)`)
+turnoverMeanA <- mean(transposeA$avg_turnovers)
+foulsMeanA <- mean(transposeA$avg_fouls)
+assistsMeanA <- mean(transposeA$avg_assists)
+reboundsMeanA <- mean(transposeA$avg_rebounds)
+stealsMeanA <- mean(transposeA$avg_steals)
+blocksMeanA <- mean(transposeA$avg_blocks)
+blocksAgainstMeanA <- mean(transposeA$avg_blocks_against)
+testframeA <- data_copy_for_adding_fold_id 
+testframeA %>% mutate(guess = (turnoverMeanA * avg_turnovers) + (foulsMeanA * avg_fouls) + (assistsMeanA * avg_assists) + (reboundsMeanA * avg_rebounds) + (stealsMeanA * avg_steals) + (blocksMeanA * avg_blocks) + (blocksAgainstMeanA * avg_blocks_against) + interceptMeanA, diff = guess - avg_points) %>% ggplot(aes(x = diff)) + geom_histogram()
+
+#cross val of lesser known avg frequencies for asd (modelB) rejected, residuals center was off
+lesser_known_model_linear_fit_asd <- rep(NULL, 16)
+for (i in 1:16){
+  lesser_known_model_linear_fit_asd[[i]] <- crossValidatorInator(data_copy_for_adding_fold_id, avg_score_differential ~ avg_turnovers + avg_fouls + avg_assists + avg_rebounds + avg_steals + avg_blocks + avg_blocks_against, i)
+}
+coefficient_frame_lesser_known_asd <- data.frame(lesser_known_model_linear_fit_asd[[1]]$coefficients, lesser_known_model_linear_fit_asd[[2]]$coefficients, lesser_known_model_linear_fit_asd[[3]]$coefficients, lesser_known_model_linear_fit_asd[[4]]$coefficients, lesser_known_model_linear_fit_points[[5]]$coefficients, lesser_known_model_linear_fit_asd[[6]]$coefficients, lesser_known_model_linear_fit_asd[[7]]$coefficients, lesser_known_model_linear_fit_asd[[8]]$coefficients, lesser_known_model_linear_fit_asd[[9]]$coefficients, lesser_known_model_linear_fit_asd[[10]]$coefficients, lesser_known_model_linear_fit_asd[[11]]$coefficients, lesser_known_model_linear_fit_asd[[12]]$coefficients, lesser_known_model_linear_fit_asd[[13]]$coefficients, lesser_known_model_linear_fit_asd[[14]]$coefficients, lesser_known_model_linear_fit_asd[[15]]$coefficients, lesser_known_model_linear_fit_asd[[16]]$coefficients)
+transposeB <- as.data.frame(t(coefficient_frame_lesser_known_asd))
+interceptMeanB <- mean(transposeB$`(Intercept)`)
+turnoverMeanB <- mean(transposeB$avg_turnovers)
+foulsMeanB <- mean(transposeB$avg_fouls)
+assistsMeanB <- mean(transposeB$avg_assists)
+reboundsMeanB <- mean(transposeB$avg_rebounds)
+stealsMeanB <- mean(transposeB$avg_steals)
+blocksMeanB <- mean(transposeB$avg_blocks)
+blocksAgainstMeanB <- mean(transposeB$avg_blocks_against)
+testframeB <- data_copy_for_adding_fold_id 
+testframeB %>% mutate(guess = (turnoverMeanB * avg_turnovers) + (foulsMeanB * avg_fouls) + (assistsMeanB * avg_assists) + (reboundsMeanB * avg_rebounds) + (stealsMeanB * avg_steals) + (blocksMeanB * avg_blocks) + (blocksAgainstMeanB * avg_blocks_against) + interceptMeanB, diff = guess - avg_score_differential) %>% ggplot(aes(x = diff)) + geom_histogram()
+
+#cross val of percentage stats for points
+percentage_stats_model_linear_fit_points <- rep(NULL, 16)
+for (i in 1:16){
+  percentage_stats_model_linear_fit_points <- crossValidatorInator(data_copy_for_adding_fold_id, avg_points ~ win_perc + field_goal_perc + three_point_perc + free_throw_perc + two_point_perc, i)
+}
+#for(i in 1:16) {plot(percentage_stats_model_linear_fit_points[[i]])}
+str(percentage_stats_model_linear_fit_points[1])
+coefficient_frame_percentage_stats_points <- data.frame(
+percentage_stats_model_linear_fit_points[[1]]$coefficients, percentage_stats_model_linear_fit_points[[2]]$coefficients, percentage_stats_model_linear_fit_points[[3]]$coefficients, percentage_stats_model_linear_fit_points[[4]]$coefficients, percentage_stats_model_linear_fit_points[[5]]$coefficients, percentage_stats_model_linear_fit_points[[6]]$coefficients, percentage_stats_model_linear_fit_points[[7]]$coefficients, percentage_stats_model_linear_fit_points[[8]]$coefficients, percentage_stats_model_linear_fit_points[[9]]$coefficients, percentage_stats_model_linear_fit_points[[10]]$coefficients, percentage_stats_model_linear_fit_points[[11]]$coefficients, percentage_stats_model_linear_fit_points[[12]]$coefficients, percentage_stats_model_linear_fit_points[[13]]$coefficients, percentage_stats_model_linear_fit_points[[14]]$coefficients, percentage_stats_model_linear_fit_points[[15]]$coefficients, percentage_stats_model_linear_fit_points[[16]]$coefficients)
+transposeC <- as.data.frame(t(coefficient_frame_percentage_stats_points))
+interceptMeanC <- mean(transposeC$`(Intercept)`)
+turnoverMeanC <- mean(transposeC$avg_turnovers)
+foulsMeanC <- mean(transposeC$avg_fouls)
+assistsMeanC <- mean(transposeC$avg_assists)
+reboundsMeanC <- mean(transposeC$avg_rebounds)
+stealsMeanC <- mean(transposeC$avg_steals)
+blocksMeanC <- mean(transposeC$avg_blocks)
+blocksAgainstMeanC <- mean(transposeC$avg_blocks_against)
+testframeC <- data_copy_for_adding_fold_id 
+testframeC %>% mutate(guess = (turnoverMeanA * avg_turnovers) + (foulsMeanA * avg_fouls) + (assistsMeanA * avg_assists) + (reboundsMeanA * avg_rebounds) + (stealsMeanA * avg_steals) + (blocksMeanA * avg_blocks) + (blocksAgainstMeanA * avg_blocks_against) + interceptMeanA, diff = guess - avg_points) %>% ggplot(aes(x = diff)) + geom_histogram()
+
+#cross val of percentage stats for asd
+percentage_stats_model_linear_fit_asd <- rep(NULL, 16)
+for (i in 1:16){
+  percentage_stats_model_linear_fit_asd <- crossValidatorInator(data_copy_for_adding_fold_id, avg_score_differential ~ win_perc + field_goal_perc + three_point_perc + free_throw_perc + two_point_perc, i)
+}
+percentage_stats_model_linear_fit_asd
+head(data_copy_for_adding_fold_id)
+#percentage stats
+#lasso?
+#options from correlation matrix
+#all defensive, all offensive, (note we have to mutate the rebound col)
+
+```
+
+
