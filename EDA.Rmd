@@ -19,11 +19,14 @@ library(GGally)
 library(ggcorrplot)
 library(tidyverse)
 library(glmnet)
+library(broom)
+library(coefplot)
 ```
 
 ```{r}
 data <- read.csv("http://www.stat.cmu.edu/cmsac/sure/materials/data/regression_projects/nba_team_season_summary.csv")
 head(data)
+head(data_copy_for_adding_fold_id)
 data <- data %>% mutate(games = wins + losses, appg = total_points/games, asd = score_differential/games) %>% arrange(appg)
 data %>% ggplot(aes(x = appg)) + geom_histogram(bins = 24) + geom_freqpoly(color = "pink")
 
@@ -53,6 +56,15 @@ assumptionChecker(data, data$two_point_perc)
 assumptionChecker(data, data$win_perc)
 assumptionChecker(data, data$asd)
 
+assumptionChecker(data_copy_for_adding_fold_id, data_copy_for_adding_fold_id$avg_rebounds)
+assumptionChecker(data_copy_for_adding_fold_id, data_copy_for_adding_fold_id$avg_assists)
+assumptionChecker(data_copy_for_adding_fold_id, data_copy_for_adding_fold_id$avg_steals)
+assumptionChecker(data_copy_for_adding_fold_id, data_copy_for_adding_fold_id$avg_blocks)
+assumptionChecker(data_copy_for_adding_fold_id, data_copy_for_adding_fold_id$avg_blocks_against)
+assumptionChecker(data_copy_for_adding_fold_id, data_copy_for_adding_fold_id$avg_fouls)
+assumptionChecker(data_copy_for_adding_fold_id, data_copy_for_adding_fold_id$avg_turnovers)
+
+
 ```
 
 ```{r}
@@ -81,6 +93,40 @@ summary(data$asd)
 iqrScaledASD <- 1.5 * (3.426829 + 3.030488)
 removedOutliersASD <- data %>% filter((asd >= -3.030488 - iqrScaledASD) && (asd <= 3.426829 + iqrScaledASD))
 
+summary(data_avg_only$avg_turnovers)
+iqrScaledATO <- 1.5 * (15.10-13.72)
+iqrScaledATO
+removedOutliersATO <- data_avg_only %>% filter((avg_turnovers >= 13.72 - iqrScaledATO) && (avg_turnovers <= 15.10 + iqrScaledATO))
+
+summary(data_avg_only$avg_fouls)
+iqrScaledAF <- 1.5 * (22.04 - 19.68)
+removedOutliersAF <- data_avg_only %>% filter((avg_fouls >= 19.68 - iqrScaledAF) && (avg_fouls <= 22.04 + iqrScaledAF))
+
+summary(data_avg_only$avg_assists)
+iqrScaledAA <- 1.5 * (23.09 - 20.46)
+removedOutliersAA <- data_avg_only %>% filter((avg_assists >= 20.46 - iqrScaledAA) && (avg_fouls <= 23.09 + iqrScaledAA))
+
+summary(data_avg_only$avg_rebounds)
+iqrScaledAR <- 1.5 * (43.68-41.01)
+removedOutliersAR <- data_avg_only %>% filter((avg_rebounds >= 41.01 - iqrScaledAR) && (avg_rebounds <= 43.68 + iqrScaledAR))
+
+summary(data_avg_only$avg_steals)
+iqrScaledAS <- 1.5 * (8.134-6.973)
+removedOutliersAS <- data_avg_only %>% filter((avg_steals >= 6.973 - iqrScaledAS) && (avg_steals <= 8.134 + iqrScaledAS))
+
+summary(data_avg_only$avg_blocks)
+iqrScaledAB <- 1.5 * (5.378 - 4.280)
+removedOutliersAB <- data_avg_only %>% filter((avg_blocks >= 4.280 - iqrScaledAB) && (avg_blocks <= 5.378 + iqrScaledAB))
+
+summary(data_avg_only$avg_d_rebounds)
+iqrScaledADR <- 1.5 * (32.90-29.87)
+removedOutliersADR <- data_avg_only %>% filter((avg_d_rebounds >= 29.87 - iqrScaledADR) && (avg_d_rebounds <= 32.90 + iqrScaledADR))
+
+summary(data_avg_only$avg_o_rebounds)
+iqrScaledAOR <- 1.5 * (11.841-10.122)
+removedOutliersAOR <- data_avg_only %>% filter((avg_o_rebounds >= 10.112 - iqrScaledAOR) && (avg_o_rebounds <= 11.841 + iqrScaledAOR))
+
+blcoks agianst, 
 ```
 
 ```{r}
@@ -169,12 +215,14 @@ with_averages_data <- data %>%
          avg_rebounds = total_rebounds/games, 
          avg_score_differential = score_differential/games, 
          avg_steals = steals/games, 
+         avg_o_rebounds = offensive_rebounds/games,
+         avg_d_rebounds = defensive_rebounds/games,
          avg_blocks = blocks/games,
          avg_blocks_against = blocks_against/games)
   
 #has only averages and percents for doing our regression
 data_avg_only <- with_averages_data %>%
-  select(avg_points, team, season, avg_turnovers, avg_fouls, avg_assists, avg_rebounds, avg_score_differential, avg_steals, avg_blocks, avg_blocks_against, win_perc, field_goal_perc, three_point_perc, free_throw_perc, two_point_perc)
+  select(avg_points, team, season, avg_turnovers, avg_fouls, avg_assists, avg_rebounds, avg_o_rebounds, avg_d_rebounds, avg_score_differential, avg_steals, avg_blocks, avg_blocks_against, win_perc, field_goal_perc, three_point_perc, free_throw_perc, two_point_perc)
 head(data_avg_only)
 
 #lasso regression with points
@@ -227,6 +275,8 @@ for (i in 1:16){
 }
 
 #cross val of lesser known avg frequencies for points (modelA)  we liked it
+crossValidatorInator_temp(data_copy_for_adding_fold_id, avg_points ~ avg_turnovers + avg_fouls + avg_assists + avg_rebounds + avg_steals + avg_blocks + avg_blocks_against, 16)
+
 lesser_known_model_linear_fit_points <- rep(NULL, 16)
 for (i in 1:16){
   lesser_known_model_linear_fit_points[[i]] <- crossValidatorInator(data_copy_for_adding_fold_id, avg_points ~ avg_turnovers + avg_fouls + avg_assists + avg_rebounds + avg_steals + avg_blocks + avg_blocks_against, i)
@@ -246,6 +296,8 @@ testframeA <- data_copy_for_adding_fold_id
 testframeA %>% mutate(guess = (turnoverMeanA * avg_turnovers) + (foulsMeanA * avg_fouls) + (assistsMeanA * avg_assists) + (reboundsMeanA * avg_rebounds) + (stealsMeanA * avg_steals) + (blocksMeanA * avg_blocks) + (blocksAgainstMeanA * avg_blocks_against) + interceptMeanA, diff = guess - avg_points) %>% ggplot(aes(x = diff)) + geom_histogram()
 
 #cross val of lesser known avg frequencies for asd (modelB) rejected, residuals center was off
+crossValidatorInator_temp(data_copy_for_adding_fold_id, avg_score_differential ~ avg_turnovers + avg_fouls + avg_assists + avg_rebounds + avg_steals + avg_blocks + avg_blocks_against, 16)
+
 lesser_known_model_linear_fit_asd <- rep(NULL, 16)
 for (i in 1:16){
   lesser_known_model_linear_fit_asd[[i]] <- crossValidatorInator(data_copy_for_adding_fold_id, avg_score_differential ~ avg_turnovers + avg_fouls + avg_assists + avg_rebounds + avg_steals + avg_blocks + avg_blocks_against, i)
@@ -266,10 +318,10 @@ testframeB %>% mutate(guess = (turnoverMeanB * avg_turnovers) + (foulsMeanB * av
 #cross val of percentage stats for points
 percentage_stats_model_linear_fit_points <- rep(NULL, 16)
 for (i in 1:16){
-  percentage_stats_model_linear_fit_points <- crossValidatorInator(data_copy_for_adding_fold_id, avg_points ~ win_perc + field_goal_perc + three_point_perc + free_throw_perc + two_point_perc, i)
+  percentage_stats_model_linear_fit_points[[i]] <- crossValidatorInator(data_copy_for_adding_fold_id, avg_points ~ win_perc + field_goal_perc + three_point_perc + free_throw_perc + two_point_perc, i)
 }
 #for(i in 1:16) {plot(percentage_stats_model_linear_fit_points[[i]])}
-str(percentage_stats_model_linear_fit_points[1])
+percentage_stats_model_linear_fit_points[[1]]$coefficients
 coefficient_frame_percentage_stats_points <- data.frame(
 percentage_stats_model_linear_fit_points[[1]]$coefficients, percentage_stats_model_linear_fit_points[[2]]$coefficients, percentage_stats_model_linear_fit_points[[3]]$coefficients, percentage_stats_model_linear_fit_points[[4]]$coefficients, percentage_stats_model_linear_fit_points[[5]]$coefficients, percentage_stats_model_linear_fit_points[[6]]$coefficients, percentage_stats_model_linear_fit_points[[7]]$coefficients, percentage_stats_model_linear_fit_points[[8]]$coefficients, percentage_stats_model_linear_fit_points[[9]]$coefficients, percentage_stats_model_linear_fit_points[[10]]$coefficients, percentage_stats_model_linear_fit_points[[11]]$coefficients, percentage_stats_model_linear_fit_points[[12]]$coefficients, percentage_stats_model_linear_fit_points[[13]]$coefficients, percentage_stats_model_linear_fit_points[[14]]$coefficients, percentage_stats_model_linear_fit_points[[15]]$coefficients, percentage_stats_model_linear_fit_points[[16]]$coefficients)
 transposeC <- as.data.frame(t(coefficient_frame_percentage_stats_points))
@@ -296,6 +348,60 @@ head(data_copy_for_adding_fold_id)
 #options from correlation matrix
 #all defensive, all offensive, (note we have to mutate the rebound col)
 
+```
+
+```{r}
+#cross validation function that returns RMSE
+KcrossValidatorInator <- function(df, recipe, nFold = 16) {
+  SquaredError <- rep(0, nFold)
+  for(foldID in 1:nFold) {
+    lm_object <- lm(data = df %>% filter(fold != foldID), formula = as.formula(recipe))
+    pred_fold = predict(lm_object, newdata=df %>% filter(fold == foldID))
+    SquaredError[foldID] = mean((df[df$fold==foldID, 'avg_points'] - pred_fold) ^ 2)
+  }
+  return(sqrt(mean(SquaredError)))
+}
+
+lesser_known_model_points_error <- KcrossValidatorInator(data_copy_for_adding_fold_id, avg_points ~ avg_turnovers + avg_fouls + avg_assists + avg_rebounds + avg_steals + avg_blocks + avg_blocks_against)
+lesser_known_model_points_error
+lesser_known_lm_points <- lm(data = data_copy_for_adding_fold_id, avg_points ~ avg_turnovers + avg_fouls + avg_assists + avg_rebounds + avg_steals + avg_blocks + avg_blocks_against)
+str(lesser_known_lm_points)
+tidy(lesser_known_lm_points)
+summary(lesser_known_lm_points)
+fit_resid_df <- data.frame(lesser_known_lm_points$fitted.values, lesser_known_lm_points$residuals, data_copy_for_adding_fold_id$avg_points) 
+
+ggplot(data = fit_resid_df, aes(x = lesser_known_lm_points$fitted.values, y = lesser_known_lm_points$residuals)) + geom_hline(yintercept = 0, color = "blue") + geom_point() + theme_bw() + labs(title = "Residual Plot", x = "Fitted Average Points per Game Values", y = "Residuals")
+ggplot(data = fit_resid_df, aes(x = lesser_known_lm_points$fitted.values, y = data_copy_for_adding_fold_id$avg_points)) + geom_abline(slope = 1, intercept = 0, color = "red") + geom_point() + theme_bw() + labs(title = "Accuracy of Model", x = "Fitted Values: Average Points per Game", y = "Observed Values: Average Points per Game")
+null_model_points <- lm(data = data_copy_for_adding_fold_id, avg_points ~ 1) 
+null_model_points
+null_model_points_error <- KcrossValidatorInator(data_copy_for_adding_fold_id, avg_points ~ 1)
+null_model_points_error
+
+#too obvious, out
+percentage_stats_model_points_error <- KcrossValidatorInator(data_copy_for_adding_fold_id, avg_points ~ win_perc + field_goal_perc + free_throw_perc)
+percentage_stats_model_points_error
+percentage_stats_lm_points <- lm(data = data_copy_for_adding_fold_id, avg_points ~ win_perc + field_goal_perc + free_throw_perc)
+percentage_stats_lm_points
+
+
+offensive_stats_model_points_error <- KcrossValidatorInator(data_copy_for_adding_fold_id, avg_points ~ avg_o_rebounds + avg_assists + avg_turnovers + avg_blocks_against + avg_fouls)
+offensive_stats_model_points_error
+offensive_stats_model <- lm(data = data_copy_for_adding_fold_id, avg_points ~ avg_o_rebounds + avg_assists + avg_turnovers + avg_blocks_against + avg_fouls)
+offensive_stats_model
+
+defensive_stats_model_points_error <- KcrossValidatorInator(data_copy_for_adding_fold_id, avg_points ~ avg_d_rebounds + avg_steals + avg_blocks + avg_fouls)
+defensive_stats_model_points_error
+defensive_stats_model <- lm(data = data_copy_for_adding_fold_id, avg_points ~ avg_d_rebounds + avg_steals + avg_blocks + avg_fouls)
+defensive_stats_model
+```
+
+
+```{r}
+tidy(lesser_known_lm_points)
+coefficientLabelVector <- c("Average Blocks Against", "Average Blocks", "Average Turnovers", "Average Fouls", "Average Steals", "Average Rebounds", "Average Assists", "Intercept")
+coefplotDraft <- coefplot(model = lesser_known_lm_points, title = "Intervals of Error for the Model Coefficients", xlab = "Coefficient Value", ylab = "Coefficient Name", pointSize = 2, color = "blue", intercept = TRUE, sort = "magnitude", decreasing = TRUE, zeroColor = "orange") + theme_bw() #we like it better with intercept in there, we need to fix the error of from and to vectors not having same length
+coefplotDraft
+knitr, table
 ```
 
 
