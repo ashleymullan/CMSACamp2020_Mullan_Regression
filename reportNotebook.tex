@@ -1,0 +1,376 @@
+\PassOptionsToPackage{unicode=true}{hyperref} % options for packages loaded elsewhere
+\PassOptionsToPackage{hyphens}{url}
+%
+\documentclass[
+]{article}
+\usepackage{lmodern}
+\usepackage{amssymb,amsmath}
+\usepackage{ifxetex,ifluatex}
+\ifnum 0\ifxetex 1\fi\ifluatex 1\fi=0 % if pdftex
+  \usepackage[T1]{fontenc}
+  \usepackage[utf8]{inputenc}
+  \usepackage{textcomp} % provides euro and other symbols
+\else % if luatex or xelatex
+  \usepackage{unicode-math}
+  \defaultfontfeatures{Scale=MatchLowercase}
+  \defaultfontfeatures[\rmfamily]{Ligatures=TeX,Scale=1}
+\fi
+% use upquote if available, for straight quotes in verbatim environments
+\IfFileExists{upquote.sty}{\usepackage{upquote}}{}
+\IfFileExists{microtype.sty}{% use microtype if available
+  \usepackage[]{microtype}
+  \UseMicrotypeSet[protrusion]{basicmath} % disable protrusion for tt fonts
+}{}
+\makeatletter
+\@ifundefined{KOMAClassName}{% if non-KOMA class
+  \IfFileExists{parskip.sty}{%
+    \usepackage{parskip}
+  }{% else
+    \setlength{\parindent}{0pt}
+    \setlength{\parskip}{6pt plus 2pt minus 1pt}}
+}{% if KOMA class
+  \KOMAoptions{parskip=half}}
+\makeatother
+\usepackage{xcolor}
+\IfFileExists{xurl.sty}{\usepackage{xurl}}{} % add URL line breaks if available
+\IfFileExists{bookmark.sty}{\usepackage{bookmark}}{\usepackage{hyperref}}
+\hypersetup{
+  pdftitle={Report Notebook},
+  pdfborder={0 0 0},
+  breaklinks=true}
+\urlstyle{same}  % don't use monospace font for urls
+\usepackage[margin=1in]{geometry}
+\usepackage{longtable,booktabs}
+% Allow footnotes in longtable head/foot
+\IfFileExists{footnotehyper.sty}{\usepackage{footnotehyper}}{\usepackage{footnote}}
+\makesavenoteenv{longtable}
+\usepackage{graphicx,grffile}
+\makeatletter
+\def\maxwidth{\ifdim\Gin@nat@width>\linewidth\linewidth\else\Gin@nat@width\fi}
+\def\maxheight{\ifdim\Gin@nat@height>\textheight\textheight\else\Gin@nat@height\fi}
+\makeatother
+% Scale images if necessary, so that they will not overflow the page
+% margins by default, and it is still possible to overwrite the defaults
+% using explicit options in \includegraphics[width, height, ...]{}
+\setkeys{Gin}{width=\maxwidth,height=\maxheight,keepaspectratio}
+\setlength{\emergencystretch}{3em}  % prevent overfull lines
+\providecommand{\tightlist}{%
+  \setlength{\itemsep}{0pt}\setlength{\parskip}{0pt}}
+\setcounter{secnumdepth}{-2}
+% Redefines (sub)paragraphs to behave more like sections
+\ifx\paragraph\undefined\else
+  \let\oldparagraph\paragraph
+  \renewcommand{\paragraph}[1]{\oldparagraph{#1}\mbox{}}
+\fi
+\ifx\subparagraph\undefined\else
+  \let\oldsubparagraph\subparagraph
+  \renewcommand{\subparagraph}[1]{\oldsubparagraph{#1}\mbox{}}
+\fi
+
+% set default figure placement to htbp
+\makeatletter
+\def\fps@figure{htbp}
+\makeatother
+
+
+\title{Report Notebook}
+\author{}
+\date{\vspace{-2.5em}July 1, 2020}
+
+\begin{document}
+\maketitle
+
+\begin{verbatim}
+## Loading required package: ggplot2
+\end{verbatim}
+
+\begin{verbatim}
+## Registered S3 method overwritten by 'GGally':
+##   method from   
+##   +.gg   ggplot2
+\end{verbatim}
+
+\begin{verbatim}
+## -- Attaching packages ---------------------------------------------------------- tidyverse 1.3.0 --
+\end{verbatim}
+
+\begin{verbatim}
+## v tibble  3.0.1     v dplyr   1.0.0
+## v tidyr   1.1.0     v stringr 1.4.0
+## v readr   1.3.1     v forcats 0.5.0
+## v purrr   0.3.4
+\end{verbatim}
+
+\begin{verbatim}
+## -- Conflicts ------------------------------------------------------------- tidyverse_conflicts() --
+## x dplyr::filter() masks stats::filter()
+## x dplyr::lag()    masks stats::lag()
+\end{verbatim}
+
+\begin{verbatim}
+## Loading required package: Matrix
+\end{verbatim}
+
+\begin{verbatim}
+## 
+## Attaching package: 'Matrix'
+\end{verbatim}
+
+\begin{verbatim}
+## The following objects are masked from 'package:tidyr':
+## 
+##     expand, pack, unpack
+\end{verbatim}
+
+\begin{verbatim}
+## Loaded glmnet 4.0-2
+\end{verbatim}
+
+\begin{verbatim}
+## Warning: package 'coefplot' was built under R version 4.0.2
+\end{verbatim}
+
+\hypertarget{key-takeaways}{%
+\section{Key Takeaways}\label{key-takeaways}}
+
+Our analysis aimed to generate and interpret an efficient model of the
+summary season statistics for 36 NBA teams ranging from the 2003-2004
+season to 2018-2019. There were two kinds of variables, play frequencies
+and success percentages. We modified the play frequencies to account for
+seasons with shorter game play by scaling our variables down to an
+individual game level. After extensive exploratory data analysis, we
+discovered that the season statistics indicated a close game score on
+average. This led us to try the average points per game metric as the
+response variable in our initial models. Our final model included all of
+the play frequency variables scaled to the average game level. We
+discovered that less direct metrics, such as assists and rebounds,
+strongly influence our model predictions. Future research would explore
+the possibility of including more direct variables in our model and the
+implications of our coefficients.
+
+\includegraphics{reportNotebook_files/figure-latex/unnamed-chunk-3-1.pdf}
+
+\hypertarget{introduction}{%
+\section{Introduction}\label{introduction}}
+
+\hypertarget{necessary-code-components-and-data-description}{%
+\subsubsection{Necessary Code Components and Data
+Description}\label{necessary-code-components-and-data-description}}
+
+To generate this model, we used 7 R packages. These included
+\emph{GGally}, \emph{ggcorrplot}, \emph{tidyverse}, \emph{glmnet},
+\emph{broom}, \emph{coefplot}, and \emph{nbastatR}. The National
+Basketball Association (NBA) released our data set of 479 observations
+via the NBA stats website. It is a comprehensive summary of regular
+season performance across 36 NBA teams ranging from the 2003-04 season
+to the 2018-19 season. Originally, it included 28 variables consisting
+of stats such as free throw percentage, win percentage, point
+accumulation, attempted field goals, and other in-game stats. As we
+progressed, we mutated 14 more variables to represent statistics on a
+game level rather than across the season to improve interpretability.
+\#\#\# Explanation of Variables The list of variables included in our
+consideration may be found in the table below. The asterisk indicates
+our response variable.
+
+\begin{longtable}[]{@{}ll@{}}
+\toprule
+\begin{minipage}[b]{0.37\columnwidth}\raggedright
+Variable Name\strut
+\end{minipage} & \begin{minipage}[b]{0.57\columnwidth}\raggedright
+Variable Description\strut
+\end{minipage}\tabularnewline
+\midrule
+\endhead
+\begin{minipage}[t]{0.37\columnwidth}\raggedright
+avg\_score\_differential\strut
+\end{minipage} & \begin{minipage}[t]{0.57\columnwidth}\raggedright
+The accumulated score difference across the season divided by the number
+of games in the season\strut
+\end{minipage}\tabularnewline
+\begin{minipage}[t]{0.37\columnwidth}\raggedright
+avg\_assists\strut
+\end{minipage} & \begin{minipage}[t]{0.57\columnwidth}\raggedright
+The accumulated assists across the season divided by the number of games
+in the season.\strut
+\end{minipage}\tabularnewline
+\begin{minipage}[t]{0.37\columnwidth}\raggedright
+avg\_blocks\strut
+\end{minipage} & \begin{minipage}[t]{0.57\columnwidth}\raggedright
+The accumulated blocks across the season divided by the number of games
+in the season\strut
+\end{minipage}\tabularnewline
+\begin{minipage}[t]{0.37\columnwidth}\raggedright
+avg\_d\_rebounds\strut
+\end{minipage} & \begin{minipage}[t]{0.57\columnwidth}\raggedright
+The accumulated defensive rebounds across the season divided by the
+number of games in the season\strut
+\end{minipage}\tabularnewline
+\begin{minipage}[t]{0.37\columnwidth}\raggedright
+avg\_fouls\strut
+\end{minipage} & \begin{minipage}[t]{0.57\columnwidth}\raggedright
+The accumulated fouls across the season divided by the number of games
+in the season\strut
+\end{minipage}\tabularnewline
+\begin{minipage}[t]{0.37\columnwidth}\raggedright
+avg\_o\_rebounds\strut
+\end{minipage} & \begin{minipage}[t]{0.57\columnwidth}\raggedright
+The accumulated offensive rebounds across the season divided by the
+number of games in the season\strut
+\end{minipage}\tabularnewline
+\begin{minipage}[t]{0.37\columnwidth}\raggedright
+avg\_points*\strut
+\end{minipage} & \begin{minipage}[t]{0.57\columnwidth}\raggedright
+The accumulation of points across the season divided by the number of
+games in the season\strut
+\end{minipage}\tabularnewline
+\begin{minipage}[t]{0.37\columnwidth}\raggedright
+avg\_rebounds\strut
+\end{minipage} & \begin{minipage}[t]{0.57\columnwidth}\raggedright
+The accumulated total rebounds across the season divided by the number
+of games in the season\strut
+\end{minipage}\tabularnewline
+\begin{minipage}[t]{0.37\columnwidth}\raggedright
+avg\_steals\strut
+\end{minipage} & \begin{minipage}[t]{0.57\columnwidth}\raggedright
+The accumulated steals across the season divided by the number of games
+in the season\strut
+\end{minipage}\tabularnewline
+\begin{minipage}[t]{0.37\columnwidth}\raggedright
+avg\_turnovers\strut
+\end{minipage} & \begin{minipage}[t]{0.57\columnwidth}\raggedright
+The accumulated turnovers across the season divided by the number of
+games in the season\strut
+\end{minipage}\tabularnewline
+\bottomrule
+\end{longtable}
+
+\hypertarget{exploratory-data-analysis}{%
+\section{Exploratory Data Analysis}\label{exploratory-data-analysis}}
+
+The first step in our research was to identify candidate response
+variables. We decided upon average score differential and average points
+per game. Next, we viewed the distribution of our intended response
+variables. The histograms resulted in the distributions being normal
+enough for us to feel confident in using either of them as our final
+response variable. We checked the distributions of our other variables
+as well which produced relatively normal results. After discovering
+multiple variable distributions with somewhat concerning tail width, we
+followed up with outlier testing. An outlier would have been classified
+as a point outside of the bounding created by extending the benchmarks
+of the first and third quartiles by the quantity of one and a half times
+the interquartile range towards the extremes in each direction. We
+created a scatter plot to arrive at a better understanding of the types
+of games within the data set through the lens of average points per game
+and average score differential. Three categories of games appeared:
+those with a drastic win or loss, an average win or loss, and close
+games. A game that was won or lost by 9 or more points on average was
+considered a Big Loss/Win, between 3 and 9 points on average was
+considered a Regular Loss/Win, and a difference of under 3 points was a
+Close Game.
+
+\includegraphics{reportNotebook_files/figure-latex/unnamed-chunk-4-1.pdf}
+
+\hypertarget{modeling}{%
+\section{Modeling}\label{modeling}}
+
+When selecting the subset of variables for our final model, we
+ultimately chose the average points per game value over the average
+score differential as our response variable. The number of points in a
+game is easily interpretable for coaches, and the rules of basketball
+dictate that success requires a team to maximize the number of points
+they score. Our beginning assumption was that variables measuring
+percentage of successfully scoring plays such as field goal percentage
+and free throw percentage would be positively correlated with average
+points per game. We used correlation matrices to confirm our assumption
+and found very high linear correlation coefficients between those
+statistics. To uncover more interesting trends, we considered less
+direct variables such as the counts for assists, fouls, rebounds,
+steals, blocks, and turnovers. We eliminated candidate models with 16
+fold cross validation using the leave one season out method. Our first
+candidate model was the null model, which had a root mean squared error
+of 6.070041. We next considered models with solely the offensive and
+solely the defensive metrics, which had a root mean squared error of
+4.842079 and 4.309872 respectively. Our best model incorporated both
+offensive and defensive metrics. This model had a root mean squared
+error of 4.189143. On the scale of average points per game, this is
+relatively small. Our median residual was 0.0477. The four plots below
+check the assumptions of our linear modeling. There is no clear pattern
+in the residuals, and the Q-Q plot lies fairly close to the 45 degree
+angle line. The leverage plot only indicates one potential outlier, and
+previous checks indicate that the observation falls in the acceptable
+range of values as determined by setting bounds via the interquartile
+range. Our adjusted \(R^2\) value was 0.5397, which indicated a moderate
+positive linear relationship between our predictor variables and the
+average points per game value.
+
+\includegraphics{reportNotebook_files/figure-latex/unnamed-chunk-5-1.pdf}
+\includegraphics{reportNotebook_files/figure-latex/unnamed-chunk-5-2.pdf}
+\includegraphics{reportNotebook_files/figure-latex/unnamed-chunk-5-3.pdf}
+\includegraphics{reportNotebook_files/figure-latex/unnamed-chunk-5-4.pdf}
+
+\hypertarget{results}{%
+\section{Results}\label{results}}
+
+All of the variables used in our model are on a frequency scale, so we
+can consider the magnitude of the coefficients relative to each other
+when interpreting our results. The coefficients of our linear model
+appear in the table below.
+
+\begin{longtable}[]{@{}ll@{}}
+\toprule
+Variable & Coefficient\tabularnewline
+\midrule
+\endhead
+Intercept & 19.98\tabularnewline
+Average Turnovers & -0.73\tabularnewline
+Average Fouls & 0.38\tabularnewline
+Average Assists & 1.31\tabularnewline
+Average Rebounds & 1.28\tabularnewline
+Average Steals & 1.08\tabularnewline
+Average Blocks & -0.81\tabularnewline
+Average Blocks Against & -0.87\tabularnewline
+\bottomrule
+\end{longtable}
+
+Turnovers, blocks, and blocks have a negative relationship with the
+number of points per game. This negative correlation may be attributed
+to the fact that an instance of a turnover, block, or block against a
+player would indicate that the team failed to score a basket on a
+possession or shot attempt. In our model, assists and rebounds increase
+points per game the most drastically, with steals not far behind. By
+definition, an assist automatically precedes a basket. Thus, the mere
+definition of the play supports its prominence as a key predictor of the
+average points scored in a game. Defensive rebounds and steals force a
+switch in possession, which allows the team an attempt to shoot and
+score more points. Offensive rebounds, in contrast, allow for another
+shot attempt on a current offensive possession. Fouls have the least
+effect on our model, because it is uncertain that they will lead to a
+basket. If they do, it is only worth 1 point.
+
+\hypertarget{conclusion}{%
+\section{Conclusion}\label{conclusion}}
+
+Our final model helped us develop three important conclusions. We
+observed that all of the frequency metrics in our data set contribute to
+the accuracy of point predictions when scaled down to the individual
+game level. In order to produce the most consistent model, we rejected
+models that took solely offensive, defensive, or percentage statistics
+into account. This approach aligns with the tactic of combining
+offensive and defensive strategies in gameplay. We also recognized that
+collinearity is a prominent hazard in basketball data. Collinearity
+concerns arose when looking at field goal percentage, two point
+percentage and three point percentage and again with offensive rebounds,
+defensive rebounds, and total rebounds. Finally, we noted that close
+games are fairly common in the NBA. Extensive exploratory data analysis
+supported this assertion and motivated the choice of average points per
+game as a response variable. The perspective of average points per game
+over the course of a season benefits players and coaches, as the insight
+that one play could be the difference between a win and a loss can shape
+gameplay. In the future, we hope to consider new models that include
+more direct game statistics such as field goal percentage, free throw
+percentage, and win percentage. We would also like to further our
+understanding of the implications of some of our coefficients on the
+current model, such as the negative value for average blocks against
+players on the team.
+
+\end{document}
